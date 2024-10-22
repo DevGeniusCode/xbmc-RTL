@@ -160,19 +160,52 @@ void CGUIBaseContainer::Process(unsigned int currentTime, CDirtyRegionList &dirt
     FreeMemory(CorrectOffset(offset - cacheBefore, 0), CorrectOffset(offset + m_itemsPerPage + 1 + cacheAfter, 0));
 
   CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
-  float pos = (m_orientation == VERTICAL) ? origin.y : origin.x;
-  float end = (m_orientation == VERTICAL) ? m_posY + m_height : m_posX + m_width;
+  float pos;
+  if (m_orientation == VERTICAL)
+  {
+      pos = origin.y;
+  }
+  else if (m_orientation == HORIZONTAL_RTL)
+  {
+      pos = origin.x + m_width;
+  }
+  else // HORIZONTAL
+  {
+      pos = origin.x;
+  }
+  float end;
+  if (m_orientation == VERTICAL)
+  {
+      end = m_posY + m_height;
+  }
+  else if (m_orientation == HORIZONTAL_RTL)
+  {
+    end = m_posX;;
+  }
+  else // HORIZONTAL
+  {
+      end = m_posX + m_width;
+  }
 
   // we offset our draw position to take into account scrolling and whether or not our focused
   // item is offscreen "above" the list.
   float drawOffset = (offset - cacheBefore) * m_layout->Size(m_orientation) - m_scroller.GetValue();
   if (GetOffset() + GetCursor() < offset)
     drawOffset += m_focusedLayout->Size(m_orientation) - m_layout->Size(m_orientation);
-  pos += drawOffset;
-  end += cacheAfter * m_layout->Size(m_orientation);
+    if (m_orientation == HORIZONTAL_RTL)
+    {
+      pos -= drawOffset;
+      end -= cacheAfter * m_layout->Size(m_orientation);
+    }
+    else
+    {
+      pos += drawOffset;
+      end += cacheAfter * m_layout->Size(m_orientation);
+    }
 
   int current = offset - cacheBefore;
-  while (pos < end && m_items.size())
+
+  while ((m_orientation == HORIZONTAL_RTL ? pos > end : pos < end) && m_items.size())
   {
     int itemNo = CorrectOffset(current, 0);
     if (itemNo >= (int)m_items.size())
@@ -186,11 +219,14 @@ void CGUIBaseContainer::Process(unsigned int currentTime, CDirtyRegionList &dirt
       // render our item
       if (m_orientation == VERTICAL)
         ProcessItem(origin.x, pos, item, focused, currentTime, dirtyregions);
-      else
+      else // HORIZONTAL and HORIZONTAL_RTL
         ProcessItem(pos, origin.y, item, focused, currentTime, dirtyregions);
     }
-    // increment our position
-    pos += focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
+
+    if (m_orientation == HORIZONTAL_RTL)
+      pos -= focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
+    else
+      pos += focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
     current++;
   }
 
@@ -271,21 +307,55 @@ void CGUIBaseContainer::Render()
   if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_height))
   {
     CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
-    float pos = (m_orientation == VERTICAL) ? origin.y : origin.x;
-    float end = (m_orientation == VERTICAL) ? m_posY + m_height : m_posX + m_width;
+    float pos;
+    if (m_orientation == VERTICAL)
+    {
+        pos = origin.y;
+    }
+    else if (m_orientation == HORIZONTAL_RTL)
+    {
+        pos = origin.x + m_width;
+    }
+    else // HORIZONTAL
+    {
+        pos = origin.x;
+    }
+
+    float end;
+    if (m_orientation == VERTICAL)
+    {
+        end = m_posY + m_height;
+    }
+    else if (m_orientation == HORIZONTAL_RTL)
+    {
+        end = m_posX;
+    }
+    else // HORIZONTAL
+    {
+        end = m_posX + m_width;
+    }
 
     // we offset our draw position to take into account scrolling and whether or not our focused
     // item is offscreen "above" the list.
     float drawOffset = (offset - cacheBefore) * m_layout->Size(m_orientation) - m_scroller.GetValue();
     if (GetOffset() + GetCursor() < offset)
       drawOffset += m_focusedLayout->Size(m_orientation) - m_layout->Size(m_orientation);
-    pos += drawOffset;
-    end += cacheAfter * m_layout->Size(m_orientation);
+    if (m_orientation == HORIZONTAL_RTL)
+    {
+      pos -= drawOffset;
+      end -= cacheAfter * m_layout->Size(m_orientation);
+    }
+    else
+    {
+      pos += drawOffset;
+      end += cacheAfter * m_layout->Size(m_orientation);
+    }
 
     float focusedPos = 0;
     std::shared_ptr<CGUIListItem> focusedItem;
     int current = offset - cacheBefore;
-    while (pos < end && m_items.size())
+
+    while ((m_orientation == HORIZONTAL_RTL ? pos > end : pos < end) && m_items.size())
     {
       int itemNo = CorrectOffset(current, 0);
       if (itemNo >= (int)m_items.size())
@@ -304,12 +374,15 @@ void CGUIBaseContainer::Render()
         {
           if (m_orientation == VERTICAL)
             RenderItem(origin.x, pos, item.get(), false);
-          else
+          else // HORIZONTAL and HORIZONTAL_RTL
             RenderItem(pos, origin.y, item.get(), false);
         }
       }
       // increment our position
-      pos += focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
+      if (m_orientation == HORIZONTAL_RTL)
+        pos -= focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
+      else
+        pos += focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
       current++;
     }
     // render focused item last so it can overlap other items
@@ -375,7 +448,8 @@ bool CGUIBaseContainer::OnAction(const CAction &action)
 
       if (action.GetHoldTime() > HOLD_TIME_START &&
         ((m_orientation == VERTICAL && (action.GetID() == ACTION_MOVE_UP || action.GetID() == ACTION_MOVE_DOWN)) ||
-         (m_orientation == HORIZONTAL && (action.GetID() == ACTION_MOVE_LEFT || action.GetID() == ACTION_MOVE_RIGHT))))
+         (m_orientation == HORIZONTAL && (action.GetID() == ACTION_MOVE_LEFT || action.GetID() == ACTION_MOVE_RIGHT)) ||
+         (m_orientation == HORIZONTAL_RTL && (action.GetID() == ACTION_MOVE_RIGHT || action.GetID() == ACTION_MOVE_LEFT))))
       { // action is held down - repeat a number of times
         float speed = std::min(1.0f, (float)(action.GetHoldTime() - HOLD_TIME_START) / (HOLD_TIME_END - HOLD_TIME_START));
         unsigned int frameDuration = std::min(CTimeUtils::GetFrameTime() - m_lastHoldTime, 50u); // max 20fps
@@ -583,7 +657,9 @@ void CGUIBaseContainer::OnLeft()
 {
   CGUIAction action = GetAction(ACTION_MOVE_LEFT);
   bool wrapAround = action.GetNavigation() == GetID() || !action.HasActionsMeetingCondition();
-  if (m_orientation == HORIZONTAL && MoveUp(wrapAround))
+  if (m_orientation == HORIZONTAL_RTL && MoveDown(wrapAround))
+    return;
+  else if (m_orientation == HORIZONTAL && MoveUp(wrapAround))
     return;
   else if (m_orientation == VERTICAL)
   {
@@ -598,7 +674,9 @@ void CGUIBaseContainer::OnRight()
 {
   CGUIAction action = GetAction(ACTION_MOVE_RIGHT);
   bool wrapAround = action.GetNavigation() == GetID() || !action.HasActionsMeetingCondition();
-  if (m_orientation == HORIZONTAL && MoveDown(wrapAround))
+  if (m_orientation == HORIZONTAL_RTL && MoveUp(wrapAround))
+    return;
+  else if (m_orientation == HORIZONTAL && MoveDown(wrapAround))
     return;
   else if (m_orientation == VERTICAL)
   {
@@ -806,7 +884,7 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint& point, const MOUSE::C
   {
     m_waitForScrollEnd = true;
     m_lastScrollValue = m_scroller.GetValue();
-    return (m_orientation == HORIZONTAL) ? EVENT_RESULT_PAN_HORIZONTAL : EVENT_RESULT_PAN_VERTICAL;
+    return (m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_RTL) ? EVENT_RESULT_PAN_HORIZONTAL : EVENT_RESULT_PAN_VERTICAL;
   }
   else if (event.m_id == ACTION_GESTURE_BEGIN)
   { // grab exclusive access
@@ -817,7 +895,8 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint& point, const MOUSE::C
   }
   else if (event.m_id == ACTION_GESTURE_PAN)
   { // do the drag and validate our offset (corrects for end of scroll)
-    m_scroller.SetValue(m_scroller.GetValue() - ((m_orientation == HORIZONTAL) ? event.m_offsetX : event.m_offsetY));
+    float offsetAdjustment = (m_orientation == HORIZONTAL_RTL  || m_orientation == HORIZONTAL_RTL) ? -event.m_offsetX : event.m_offsetX;
+    m_scroller.SetValue(m_scroller.GetValue() - ((m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_RTL) ? offsetAdjustment : event.m_offsetY));
     float size = (m_layout) ? m_layout->Size(m_orientation) : 10.0f;
     int offset = MathUtils::round_int(static_cast<double>(m_scroller.GetValue() / size));
     m_lastScrollStartTimer.Stop();
@@ -1154,7 +1233,7 @@ unsigned int CGUIBaseContainer::GetRows() const
 
 inline float CGUIBaseContainer::Size() const
 {
-  return (m_orientation == HORIZONTAL) ? m_width : m_height;
+  return (m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_RTL) ? m_width : m_height;
 }
 
 int CGUIBaseContainer::ScrollCorrectionRange() const
@@ -1321,9 +1400,22 @@ void CGUIBaseContainer::FreeMemory(int keepStart, int keepEnd)
 bool CGUIBaseContainer::InsideLayout(const CGUIListItemLayout *layout, const CPoint &point) const
 {
   if (!layout) return false;
-  if ((m_orientation == VERTICAL && (layout->Size(HORIZONTAL) > 1) && point.x > layout->Size(HORIZONTAL)) ||
-      (m_orientation == HORIZONTAL && (layout->Size(VERTICAL) > 1)&& point.y > layout->Size(VERTICAL)))
-    return false;
+
+  if (m_orientation == VERTICAL)
+  {
+    if (layout->Size(HORIZONTAL) > 1 && point.x > layout->Size(HORIZONTAL))
+      return false;
+  }
+  else if (m_orientation == HORIZONTAL_RTL)
+  {
+    if (layout->Size(VERTICAL) > 1 && point.y > layout->Size(VERTICAL))
+      return false;
+  }
+  else if (m_orientation == HORIZONTAL)
+  {
+    if (layout->Size(VERTICAL) > 1 && point.y > layout->Size(VERTICAL))
+      return false;
+  }
   return true;
 }
 
@@ -1347,7 +1439,7 @@ bool CGUIBaseContainer::GetCondition(int condition, int data) const
   case CONTAINER_ROW:
     return (m_orientation == VERTICAL) ? (GetCursor() == data) : true;
   case CONTAINER_COLUMN:
-    return (m_orientation == HORIZONTAL) ? (GetCursor() == data) : true;
+    return (m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_RTL) ? (GetCursor() == data) : true;
   case CONTAINER_POSITION:
     return (GetCursor() == data);
   case CONTAINER_HAS_NEXT:
