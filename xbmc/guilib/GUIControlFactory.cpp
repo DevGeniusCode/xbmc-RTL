@@ -1125,6 +1125,14 @@ CGUIControl* CGUIControlFactory::Create(int parentID,
     StringUtils::ToLower(strTmp);
     if (strTmp == "horizontal")
       orientation = HORIZONTAL;
+    else if (strTmp == "horizontalrtl")
+    {
+      orientation = HORIZONTAL_RTL;
+    }
+    else if (strTmp == "verticalrtl")
+    {
+      orientation = VERTICAL_RTL;
+    }
   }
   XMLUtils::GetFloat(pControlNode, "itemgap", buttonGap);
   XMLUtils::GetInt(pControlNode, "movement", iMovementRange);

@@ -57,7 +57,7 @@ void CGUIListItemLayout::ResetAnimation(ANIMATION_TYPE animType)
 
 float CGUIListItemLayout::Size(ORIENTATION orientation) const
 {
-  return (orientation == HORIZONTAL) ? m_width : m_height;
+  return (orientation == HORIZONTAL || orientation == HORIZONTAL_RTL) ? m_width : m_height;
 }
 
 void CGUIListItemLayout::Process(CGUIListItem *item, int parentID, unsigned int currentTime, CDirtyRegionList &dirtyregions)
