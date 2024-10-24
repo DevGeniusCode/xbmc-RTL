@@ -1,5 +1,28 @@
 ![Kodi Logo](docs/resources/banner.png)
 
+# Kodi RTL Layout Support
+
+This project adds **Right-to-Left (RTL)** layout support for Kodi's UI components, enabling full RTL layout behavior where items are displayed and navigated from right to left. This goes beyond text alignment, which Kodi already supports. The goal is to mirror the entire interface for users who prefer or require RTL layouts, such as in Arabic or Hebrew languages.
+
+### Before: Default Left-to-Right Layout (HORIZONTAL)
+In the default layout, items in Kodi’s lists and menus are arranged from left to right, and the focus and scrolling behaviors are designed accordingly.
+
+![Before: Left-to-Right Layout](docs/resources/RTL_before.png)
+
+### After: Custom Right-to-Left Layout (HORIZONTAL_RTL)
+With this modification, the entire layout is reversed. Items are displayed from right to left, and both mouse and keyboard navigation are adapted for RTL scrolling and focus.
+
+![After: Right-to-Left Layout](docs/resources/RTL_after.png)
+
+### Project Goals
+The main objective of this project is to provide full RTL layout support for Kodi’s user interface, including:
+- Reversing the item order in various lists and menus.
+- Ensuring correct mouse and keyboard behavior, with proper scrolling and item focus in RTL mode.
+- Adjusting the visibility and boundary handling for focused items, so they remain correctly displayed on screen in RTL layouts.
+
+This enhancement aims to provide a better experience for RTL language users by delivering a fully mirrored UI in Kodi.
+
+
 <p align="center">
   <strong>
     <a href="https://kodi.tv/">website</a>

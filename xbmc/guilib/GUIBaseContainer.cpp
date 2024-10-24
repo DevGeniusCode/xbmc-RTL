@@ -468,9 +468,9 @@ bool CGUIBaseContainer::OnAction(const CAction &action)
         while (m_scrollItemsPerFrame >= 1)
         {
           if (action.GetID() == ACTION_MOVE_LEFT || action.GetID() == ACTION_MOVE_UP)
-            MoveUp(false);
+            m_orientation == HORIZONTAL_RTL ? MoveDown(false) : MoveUp(false);
           else
-            MoveDown(false);
+            m_orientation == HORIZONTAL_RTL ? MoveUp(false) : MoveDown(false);
           m_scrollItemsPerFrame--;
         }
         return true;

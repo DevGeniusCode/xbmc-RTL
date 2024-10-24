@@ -211,7 +211,7 @@ bool CGUIFixedListContainer::SelectItemFromPoint(const CPoint &point)
     m_analogScrollCount += amount * amount * mouse_scroll_speed;
     if (m_analogScrollCount > 1)
     {
-      ScrollToOffset(GetOffset() - 1);
+//      ScrollToOffset(GetOffset() - 1);
       m_analogScrollCount = 0;
     }
     return true;
@@ -225,7 +225,7 @@ bool CGUIFixedListContainer::SelectItemFromPoint(const CPoint &point)
     m_analogScrollCount += amount * amount * mouse_scroll_speed;
     if (m_analogScrollCount > 1)
     {
-      ScrollToOffset(GetOffset() + 1);
+//      ScrollToOffset(GetOffset() + 1);
       m_analogScrollCount = 0;
     }
     return true;
