@@ -499,7 +499,7 @@ void CGUIPanelContainer::CalculateLayout()
 
   if (!m_layout || !m_focusedLayout) return;
   // calculate the number of items to display
-  if (m_orientation == HORIZONTAL)
+  if (m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_REVERSE)
   {
     m_itemsPerRow = (int)(m_height / m_layout->Size(VERTICAL));
     m_itemsPerPage = (int)(m_width / m_layout->Size(HORIZONTAL));
