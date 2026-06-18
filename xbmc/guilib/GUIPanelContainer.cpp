@@ -51,8 +51,8 @@ void CGUIPanelContainer::Process(unsigned int currentTime, CDirtyRegionList &dir
     FreeMemory(CorrectOffset(offset - cacheBefore, 0), CorrectOffset(offset + m_itemsPerPage + 1 + cacheAfter, 0));
 
   CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
-  float pos = (m_orientation == VERTICAL) ? origin.y : origin.x;
-  float end = (m_orientation == VERTICAL) ? m_posY + m_height : m_posX + m_width;
+  float pos = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? origin.y : origin.x;
+  float end = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? m_posY + m_height : m_posX + m_width;
   pos += (offset - cacheBefore) * m_layout->Size(m_orientation) - m_scroller.GetValue();
   end += cacheAfter * m_layout->Size(m_orientation);
 
@@ -68,10 +68,26 @@ void CGUIPanelContainer::Process(unsigned int currentTime, CDirtyRegionList &dir
       item->SetCurrentItem(current + 1);
       bool focused = (current == GetOffset() * m_itemsPerRow + GetCursor()) && m_bHasFocus;
 
-      if (m_orientation == VERTICAL)
-        ProcessItem(origin.x + col * m_layout->Size(HORIZONTAL), pos, item, focused, currentTime, dirtyregions);
+      float itemSize = focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
+      float actualX = origin.x;
+      float actualY = origin.y;
+
+      if (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE)
+      {
+        actualX = origin.x + col * m_layout->Size(HORIZONTAL);
+        actualY = pos;
+        if (m_orientation == VERTICAL_REVERSE)
+          actualY = m_posY + m_height - (pos - m_posY) - itemSize;
+      }
       else
-        ProcessItem(pos, origin.y + col * m_layout->Size(VERTICAL), item, focused, currentTime, dirtyregions);
+      {
+        actualX = pos;
+        if (m_orientation == HORIZONTAL_REVERSE)
+          actualX = m_posX + m_width - (pos - m_posX) - itemSize;
+        actualY = origin.y + col * m_layout->Size(VERTICAL);
+      }
+
+      ProcessItem(actualX, actualY, item, focused, currentTime, dirtyregions);
     }
     // increment our position
     if (col < m_itemsPerRow - 1)
@@ -105,8 +121,8 @@ void CGUIPanelContainer::Render()
   if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_height))
   {
     CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
-    float pos = (m_orientation == VERTICAL) ? origin.y : origin.x;
-    float end = (m_orientation == VERTICAL) ? m_posY + m_height : m_posX + m_width;
+    float pos = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? origin.y : origin.x;
+    float end = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? m_posY + m_height : m_posX + m_width;
     pos += (offset - cacheBefore) * m_layout->Size(m_orientation) - m_scroller.GetValue();
     end += cacheAfter * m_layout->Size(m_orientation);
 
@@ -124,19 +140,35 @@ void CGUIPanelContainer::Render()
       {
         std::shared_ptr<CGUIListItem> item = m_items[current];
         bool focused = (current == GetOffset() * m_itemsPerRow + GetCursor()) && m_bHasFocus;
+        float itemSize = focused ? m_focusedLayout->Size(m_orientation) : m_layout->Size(m_orientation);
+        float actualX = origin.x;
+        float actualY = origin.y;
+
+        if (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE)
+        {
+          actualX = origin.x + col * m_layout->Size(HORIZONTAL);
+          actualY = pos;
+          if (m_orientation == VERTICAL_REVERSE)
+            actualY = m_posY + m_height - (pos - m_posY) - itemSize;
+        }
+        else
+        {
+          actualX = pos;
+          if (m_orientation == HORIZONTAL_REVERSE)
+            actualX = m_posX + m_width - (pos - m_posX) - itemSize;
+          actualY = origin.y + col * m_layout->Size(VERTICAL);
+        }
+
         // render our item
         if (focused)
         {
-          focusedPos = pos;
+          focusedPos = pos; // Keep original tracking pos for post-loop logic
           focusedCol = col;
           focusedItem = item;
         }
         else
         {
-          if (m_orientation == VERTICAL)
-            renderitems.emplace_back(origin.x + col * m_layout->Size(HORIZONTAL), pos, item, false);
-          else
-            renderitems.emplace_back(pos, origin.y + col * m_layout->Size(VERTICAL), item, false);
+          renderitems.emplace_back(actualX, actualY, item, false);
         }
       }
       // increment our position
@@ -152,12 +184,25 @@ void CGUIPanelContainer::Render()
     // and render the focused item last (for overlapping purposes)
     if (focusedItem)
     {
-      if (m_orientation == VERTICAL)
-        renderitems.emplace_back(origin.x + focusedCol * m_layout->Size(HORIZONTAL), focusedPos,
-                                 focusedItem, true);
+      float itemSize = m_focusedLayout->Size(m_orientation);
+      float actualX = origin.x;
+      float actualY = origin.y;
+
+      if (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE)
+      {
+        actualX = origin.x + focusedCol * m_layout->Size(HORIZONTAL);
+        actualY = focusedPos;
+        if (m_orientation == VERTICAL_REVERSE)
+          actualY = m_posY + m_height - (focusedPos - m_posY) - itemSize;
+      }
       else
-        renderitems.emplace_back(focusedPos, origin.y + focusedCol * m_layout->Size(VERTICAL),
-                                 focusedItem, true);
+      {
+        actualX = focusedPos;
+        if (m_orientation == HORIZONTAL_REVERSE)
+          actualX = m_posX + m_width - (focusedPos - m_posX) - itemSize;
+        actualY = origin.y + focusedCol * m_layout->Size(VERTICAL);
+      }
+      renderitems.emplace_back(actualX, actualY, focusedItem, true);
     }
 
     if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
@@ -183,7 +228,16 @@ void CGUIPanelContainer::Render()
 
 bool CGUIPanelContainer::OnAction(const CAction &action)
 {
-  switch (action.GetID())
+  int logicalAction = action.GetID();
+  if (m_orientation == HORIZONTAL_REVERSE || m_orientation == VERTICAL_REVERSE)
+  {
+    if (logicalAction == ACTION_PAGE_UP) logicalAction = ACTION_PAGE_DOWN;
+    else if (logicalAction == ACTION_PAGE_DOWN) logicalAction = ACTION_PAGE_UP;
+    else if (logicalAction == ACTION_SCROLL_UP) logicalAction = ACTION_SCROLL_DOWN;
+    else if (logicalAction == ACTION_SCROLL_DOWN) logicalAction = ACTION_SCROLL_UP;
+  }
+
+  switch (logicalAction)
   {
   case ACTION_PAGE_UP:
     {
@@ -273,10 +327,9 @@ void CGUIPanelContainer::OnLeft()
 {
   CGUIAction action = GetAction(ACTION_MOVE_LEFT);
   bool wrapAround = action.GetNavigation() == GetID() || !action.HasActionsMeetingCondition();
-  if (m_orientation == VERTICAL && MoveLeft(wrapAround))
-    return;
-  if (m_orientation == HORIZONTAL && MoveUp(wrapAround))
-    return;
+  if ((m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) && MoveLeft(wrapAround)) return;
+  if (m_orientation == HORIZONTAL && MoveUp(wrapAround)) return;
+  if (m_orientation == HORIZONTAL_REVERSE && MoveDown(wrapAround)) return;
   CGUIControl::OnLeft();
 }
 
@@ -284,21 +337,19 @@ void CGUIPanelContainer::OnRight()
 {
   CGUIAction action = GetAction(ACTION_MOVE_RIGHT);
   bool wrapAround = action.GetNavigation() == GetID() || !action.HasActionsMeetingCondition();
-  if (m_orientation == VERTICAL && MoveRight(wrapAround))
-    return;
-  if (m_orientation == HORIZONTAL && MoveDown(wrapAround))
-    return;
-  return CGUIControl::OnRight();
+  if ((m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) && MoveRight(wrapAround)) return;
+  if (m_orientation == HORIZONTAL && MoveDown(wrapAround)) return;
+  if (m_orientation == HORIZONTAL_REVERSE && MoveUp(wrapAround)) return;
+  CGUIControl::OnRight();
 }
 
 void CGUIPanelContainer::OnUp()
 {
   CGUIAction action = GetAction(ACTION_MOVE_UP);
   bool wrapAround = action.GetNavigation() == GetID() || !action.HasActionsMeetingCondition();
-  if (m_orientation == VERTICAL && MoveUp(wrapAround))
-    return;
-  if (m_orientation == HORIZONTAL && MoveLeft(wrapAround))
-    return;
+  if (m_orientation == VERTICAL && MoveUp(wrapAround)) return;
+  if (m_orientation == VERTICAL_REVERSE && MoveDown(wrapAround)) return;
+  if ((m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_REVERSE) && MoveLeft(wrapAround)) return;
   CGUIControl::OnUp();
 }
 
@@ -306,11 +357,10 @@ void CGUIPanelContainer::OnDown()
 {
   CGUIAction action = GetAction(ACTION_MOVE_DOWN);
   bool wrapAround = action.GetNavigation() == GetID() || !action.HasActionsMeetingCondition();
-  if (m_orientation == VERTICAL && MoveDown(wrapAround))
-    return;
-  if (m_orientation == HORIZONTAL && MoveRight(wrapAround))
-    return;
-  return CGUIControl::OnDown();
+  if (m_orientation == VERTICAL && MoveDown(wrapAround)) return;
+  if (m_orientation == VERTICAL_REVERSE && MoveUp(wrapAround)) return;
+  if ((m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_REVERSE) && MoveRight(wrapAround)) return;
+  CGUIControl::OnDown();
 }
 
 bool CGUIPanelContainer::MoveDown(bool wrapAround)
@@ -481,23 +531,28 @@ int CGUIPanelContainer::GetCursorFromPoint(const CPoint &point, CPoint *itemPoin
   if (!m_layout)
     return -1;
 
-  float sizeX = m_orientation == VERTICAL ? m_layout->Size(HORIZONTAL) : m_layout->Size(VERTICAL);
-  float sizeY = m_orientation == VERTICAL ? m_layout->Size(VERTICAL) : m_layout->Size(HORIZONTAL);
+  float sizeCross = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? m_layout->Size(HORIZONTAL) : m_layout->Size(VERTICAL);
+  float sizePrimary = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? m_layout->Size(VERTICAL) : m_layout->Size(HORIZONTAL);
 
-  float posY = m_orientation == VERTICAL ? point.y : point.x;
+  float primaryPos = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? point.y : point.x;
+  if (m_orientation == VERTICAL_REVERSE) primaryPos = m_height - primaryPos;
+  if (m_orientation == HORIZONTAL_REVERSE) primaryPos = m_width - primaryPos;
+
+  float crossPos = (m_orientation == VERTICAL || m_orientation == VERTICAL_REVERSE) ? point.x : point.y;
+
   for (int y = 0; y < m_itemsPerPage + 1; y++) // +1 to ensure if we have a half item we can select it
   {
-    float posX = m_orientation == VERTICAL ? point.x : point.y;
+    float tempCross = crossPos;
     for (int x = 0; x < m_itemsPerRow; x++)
     {
       int item = x + y * m_itemsPerRow;
-      if (posX < sizeX && posY < sizeY && item + GetOffset() < (int)m_items.size())
+      if (tempCross < sizeCross && primaryPos < sizePrimary && item + GetOffset() < (int)m_items.size())
       { // found
         return item;
       }
-      posX -= sizeX;
+      tempCross -= sizeCross;
     }
-    posY -= sizeY;
+    primaryPos -= sizePrimary;
   }
   return -1;
 }
@@ -526,7 +581,7 @@ bool CGUIPanelContainer::GetCondition(int condition, int data) const
   int row = GetCurrentRow();
   int col = GetCurrentColumn();
 
-  if (m_orientation == HORIZONTAL)
+  if (m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_REVERSE)
     std::swap(row, col);
 
   switch (condition)
@@ -545,7 +600,7 @@ std::string CGUIPanelContainer::GetLabel(int info) const
   int row = GetCurrentRow();
   int col = GetCurrentColumn();
 
-  if (m_orientation == HORIZONTAL)
+  if (m_orientation == HORIZONTAL || m_orientation == HORIZONTAL_REVERSE)
     std::swap(row, col);
 
   switch (info)
